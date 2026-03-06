@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trợ Lý Giám Thị AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; background-color: #f9f9f9;}
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    button { padding: 10px 15px; font-size: 16px; margin: 10px 0; cursor: pointer; border: none; border-radius: 5px; color: white; width: 100%;}
+    #recordBtn { background-color: #ea4335; }
+    #sendBtn { background-color: #34a853; }
+    textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical; }
+    #transcript { height: 80px; font-size: 16px;}
+    #ai-response { height: 300px; background-color: #f0f8ff; font-size: 15px; line-height: 1.5;}
+    .status { color: #555; font-style: italic; font-size: 14px; display: block; margin-bottom: 10px;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Trợ Lý Nhập Lỗi Học Sinh 🎤</h2>
+
+    <button id="recordBtn" onclick="toggleRecording()">🎙️ Bấm để đọc lỗi</button>
+    <span id="status" class="status">Sẵn sàng ghi âm...</span>
+
+    <label for="transcript"><b>Nội dung nhận diện:</b></label>
+    <textarea id="transcript" placeholder="Văn bản bạn đọc sẽ hiện ở đây..."></textarea>
+
+    <button id="sendBtn" onclick="sendToAI()">✨ Gửi cho AI Xử Lý</button>
+    <span id="loading" class="status" style="display:none; color: #e67e22; font-weight: bold;">⏳ Đang gửi dữ liệu cho AI phân tích, vui lòng đợi...</span>
+
+    <label for="ai-response" style="display:block; margin-top: 15px;"><b>Phản hồi từ AI & Tin nhắn phụ huynh:</b></label>
+    <textarea id="ai-response" readonly placeholder="Kết quả từ hệ thống sẽ hiển thị tại đây..."></textarea>
+  </div>
+
+  <script>
+    // --- THAY LINK APPS SCRIPT CỦA BẠN VÀO ĐÂY ---
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfy/exec"; 
+    // ----------------------------------------------
+
+    let recognition;
+    let isRecording = false;
+
+    if ('webkitSpeechRecognition' in window) {
+      recognition = new webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'vi-VN'; 
+
+      recognition.onstart = () => { document.getElementById('status').innerText = "🔴 Đang nghe... Hãy nói đi!"; };
+      recognition.onresult = (event) => {
+        document.getElementById('transcript').value = event.results[0][0].transcript;
+        document.getElementById('status').innerText = "✅ Đã ghi âm xong.";
+        resetRecordButton();
+      };
+      recognition.onerror = (event) => {
+        document.getElementById('status').innerText = "❌ Lỗi micro: " + event.error;
+        resetRecordButton();
+      };
+      recognition.onend = () => resetRecordButton();
+    } else {
+      alert("Trình duyệt không hỗ trợ. Vui lòng dùng Google Chrome.");
+    }
+
+    function resetRecordButton() {
+        isRecording = false;
+        document.getElementById('recordBtn').innerText = "🎙️ Bấm để đọc lỗi";
+        document.getElementById('recordBtn').style.backgroundColor = "#ea4335";
+    }
+
+    function toggleRecording() {
+      if (!recognition) return;
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        document.getElementById('transcript').value = ""; 
+        recognition.start();
+        document.getElementById('recordBtn').innerText = "⏹ Đang ghi... Bấm để dừng";
+        document.getElementById('recordBtn').style.backgroundColor = "#555";
+        isRecording = true;
+      }
+    }
+
+    async function sendToAI() {
+      const text = document.getElementById('transcript').value;
+      if (!text.trim()) {
+        alert("Vui lòng đọc hoặc nhập lỗi vi phạm trước khi gửi.");
+        return;
+      }
+
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('ai-response').value = "";
+      document.getElementById('sendBtn').disabled = true;
+
+      try {
+        // Gửi POST request sang Apps Script
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ text: text })
+        });
+
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+          document.getElementById('ai-response').value = data.result;
+        } else {
+          document.getElementById('ai-response').value = "Có lỗi từ hệ thống: " + data.message;
+        }
+      } catch (error) {
+        document.getElementById('ai-response').value = "Lỗi kết nối mạng: " + error.message;
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('sendBtn').disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
